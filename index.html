@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Coin Slice</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=TikTok+Sans:wght@400..900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#F1F1F2;overscroll-behavior:none}
+body{font-family:'TikTok Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#161823;user-select:none;-webkit-user-select:none;touch-action:none}
+button,input{font-family:inherit}
+
+#app{position:relative;width:100%;max-width:480px;height:100vh;height:100dvh;margin:0 auto;overflow:hidden;background:#fff;box-shadow:0 0 0 1px rgba(22,24,35,.06)}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+/* glitch text */
+.gl{text-shadow:-2px -2px 1.5px rgba(37,244,238,.9),2px 2px 1.5px rgba(254,44,85,.9)}
+
+/* background */
+.bg{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.bg-blob{position:absolute;border-radius:50%;opacity:.16;filter:blur(48px);animation:blob ease-in-out infinite}
+@keyframes blob{0%,100%{transform:translate3d(0,0,0) scale(1)}33%{transform:translate3d(40px,-50px,0) scale(1.12)}66%{transform:translate3d(-30px,30px,0) scale(.92)}}
+.bg-dots{position:absolute;inset:0;background-image:radial-gradient(rgba(22,24,35,.09) 1.2px,transparent 1.2px);background-size:22px 22px;animation:dots 2.4s linear infinite}
+@keyframes dots{to{background-position:22px 44px}}
+.bg-streak{position:absolute;left:0;width:180px;height:3px;border-radius:2px;opacity:.28;animation:streak cubic-bezier(.5,0,.5,1) infinite}
+@keyframes streak{0%{transform:translateX(-260px) rotate(-18deg)}100%{transform:translateX(560px) rotate(-18deg)}}
+.bg-ring{position:absolute;bottom:-70px;border-radius:50%;border:2.5px solid rgba(242,169,0,.28);animation:rise linear infinite}
+@keyframes rise{0%{transform:translateY(0) rotate(0);opacity:0}12%{opacity:1}88%{opacity:1}100%{transform:translateY(-110vh) rotate(240deg);opacity:0}}
+
+/* coin visuals (DOM) - REPLACED WITH IMAGE */
+.coin{width:100%;height:100%;border-radius:50%;background:url('https://cdn.imagetourls.com/uploads/tyImg/HZIolFqY.png') center/cover no-repeat;box-shadow:0 6px 14px rgba(22,24,35,.18);display:flex;align-items:center;justify-content:center}
+.coin-ring{display:none;} /* Hiding the ring and numbers since we have an image */
+.ci{display:inline-block;border-radius:50%;flex-shrink:0;background:url('https://cdn.imagetourls.com/uploads/tyImg/HZIolFqY.png') center/cover no-repeat;}
+
+/* HUD */
+.hud{position:absolute;top:0;left:0;right:0;padding:calc(env(safe-area-inset-top,0px) + 20px) 16px 0;display:flex;justify-content:space-between;align-items:flex-start;pointer-events:none}
+.pill{display:flex;align-items:center;gap:8px;height:40px;border-radius:20px;background:rgba(22,24,35,.06)}
+.bal{padding:0 14px 0 8px}
+.bal .lbl{display:block;font-size:11px;font-weight:600;color:#6B6C72;line-height:1}
+.bal .val{display:block;font-size:16px;font-weight:800;line-height:1;margin-top:3px;font-variant-numeric:tabular-nums}
+.timer{padding:0 14px 0 10px;transition:background .15s,color .15s}
+.timer.low{background:#FE2C55;color:#fff}
+.timer span{font-size:18px;font-weight:800;min-width:38px;text-align:right;font-variant-numeric:tabular-nums}
+.bar{width:88px;height:4px;border-radius:2px;background:rgba(22,24,35,.08);overflow:hidden;margin-top:6px;margin-left:auto}
+.bar i{display:block;height:100%;width:100%;background:#FE2C55;border-radius:2px}
+#live{position:absolute;top:calc(env(safe-area-inset-top,0px) + 92px);left:0;right:0;display:none;flex-direction:column;align-items:center;pointer-events:none}
+#live.show{display:flex}
+#live small{font-size:12px;font-weight:600;color:#6B6C72}
+#live div{display:flex;align-items:center;gap:8px}
+#live b{font-size:40px;font-weight:900;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+
+/* screens */
+.screen{position:absolute;inset:0;display:none}
+.screen.show{display:flex}
+.btn{appearance:none;border:0;cursor:pointer;font-weight:700;font-size:17px;height:52px;border-radius:8px;background:#E8114A;color:#fff;width:100%;transition:transform .08s,background .15s}
+.btn:hover{background:#D90B45}
+.btn:active{transform:scale(.98)}
+.btn:disabled{background:#F1F1F2;color:#6B6C72;cursor:not-allowed}
+.btn:focus-visible,.paste:focus-visible{outline:3px solid #25F4EE;outline-offset:2px}
+
+#intro{flex-direction:column;align-items:center;justify-content:center;padding:0 28px;gap:18px}
+#intro h1{margin:0;font-size:52px;line-height:.95;font-weight:900;letter-spacing:-1.5px;text-align:center}
+#intro p{margin:0;font-size:16px;line-height:1.4;color:#6B6C72;text-align:center;max-width:280px}
+#intro p strong{color:#161823}
+.hero{position:relative;width:200px;height:150px}
+.hero .c{position:absolute}
+.hero .swipe{position:absolute;left:30px;top:70px;width:140px;height:6px;border-radius:3px;background:#161823;box-shadow:-2px -2px 0 #25F4EE,2px 2px 0 #FE2C55;animation:hint 1.6s ease-in-out infinite}
+@keyframes hint{0%,100%{transform:translateX(-30px) rotate(-20deg)}50%{transform:translateX(30px) rotate(-20deg)}}
+
+.dim{background:rgba(22,24,35,.38);flex-direction:column;justify-content:flex-end}
+.sheet{background:#fff;border-radius:16px 16px 0 0;padding:10px 20px calc(env(safe-area-inset-bottom,0px) + 30px);display:flex;flex-direction:column;align-items:center;gap:6px;animation:sheet .32s cubic-bezier(.2,.9,.3,1) both}
+@keyframes sheet{from{transform:translateY(100%)}to{transform:none}}
+.grab{width:36px;height:4px;border-radius:2px;background:#E3E3E4;margin-bottom:14px}
+.sheet .btn{margin-top:6px}
+.chips{display:flex;gap:8px;margin:8px 0 14px}
+.chip{font-size:13px;font-weight:600;padding:6px 12px;border-radius:14px;background:#F1F1F2}
+.pop{animation:pop .35s cubic-bezier(.2,1.4,.4,1) both}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
+.big{display:flex;align-items:center;gap:10px}
+
+#nick .sheet{align-items:stretch;gap:12px}
+#nick h2{margin:0;font-size:22px;font-weight:800;text-align:center}
+#nick p{margin:0 0 6px;font-size:15px;line-height:1.4;color:#6B6C72;text-align:center}
+#nick p strong{color:#161823}
+#nick label{font-size:13px;font-weight:700}
+.field{display:flex;align-items:center;gap:4px;height:52px;padding:0 8px 0 14px;border-radius:8px;border:1.5px solid #E3E3E4;background:#F8F8F8}
+.field:focus-within{border-color:#161823}
+.field .at{font-size:17px;font-weight:700;color:#6B6C72}
+.field input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-size:17px;font-weight:600;color:#161823;height:100%;user-select:text;-webkit-user-select:text}
+.field input::placeholder{color:#8A8B91}
+.paste{appearance:none;border:0;cursor:pointer;display:flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:6px;background:#161823;color:#fff;font-size:14px;font-weight:700;flex-shrink:0}
+.paste:hover{background:#2F3140}
+.count{font-size:12px;color:#6B6C72;text-align:right}
+
+#loading{background:#fff;flex-direction:column;align-items:center;justify-content:center;gap:22px}
+#loading .dots{position:relative;width:60px;height:24px}
+#loading .dots i{position:absolute;left:50%;top:2px;margin-left:-10px;width:20px;height:20px;border-radius:50%;mix-blend-mode:multiply}
+#loading .dots i:first-child{background:#25F4EE;animation:da .8s ease-in-out infinite}
+#loading .dots i:last-child{background:#FE2C55;animation:db .8s ease-in-out infinite}
+@keyframes da{0%,100%{transform:translateX(-14px)}50%{transform:translateX(14px)}}
+@keyframes db{0%,100%{transform:translateX(14px)}50%{transform:translateX(-14px)}}
+#loading span{font-size:15px;font-weight:600;color:#6B6C72}
+
+#reward{background:#fff;flex-direction:column;align-items:center;justify-content:center;padding:0 24px}
+#confetti{pointer-events:none}
+.rw{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;z-index:1}
+.user{display:flex;align-items:center;gap:8px;height:36px;padding:0 14px 0 6px;border-radius:18px;background:#F1F1F2}
+.user i{width:26px;height:26px;border-radius:50%;background:#161823;color:#fff;font-style:normal;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;box-shadow:-1.5px -1.5px 0 #25F4EE,1.5px 1.5px 0 #FE2C55}
+.user span{font-size:15px;font-weight:700}
+#reward h2{margin:14px 0 0;font-size:34px;font-weight:900;letter-spacing:-1px;text-align:center}
+.rw .sub{font-size:15px;font-weight:600;color:#6B6C72;margin-top:10px}
+.rw .total{display:flex;align-items:center;gap:12px}
+.rw .total b{font-size:68px;line-height:1;font-weight:900;letter-spacing:-2.5px;font-variant-numeric:tabular-nums}
+.rw .added{font-size:16px;font-weight:800;color:#E8114A;margin-top:6px}
+#reward .btn{position:absolute;left:20px;right:20px;bottom:calc(env(safe-area-inset-bottom,0px) + 30px);width:auto;z-index:1}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="bg" aria-hidden="true">
+    <div class="bg-blob" style="left:-90px;top:15%;width:300px;height:300px;background:#25F4EE;animation-duration:9s"></div>
+    <div class="bg-blob" style="right:-110px;top:50%;width:320px;height:320px;background:#FE2C55;animation-duration:11s;animation-delay:-4s"></div>
+    <div class="bg-blob" style="left:25%;bottom:-150px;width:260px;height:260px;background:#FFD23F;animation-duration:13s;animation-delay:-7s"></div>
+    <div class="bg-dots"></div>
+    <div class="bg-streak" style="top:25%;background:#25F4EE;animation-duration:3.2s"></div>
+    <div class="bg-streak" style="top:55%;background:#FE2C55;animation-duration:4.1s;animation-delay:-1.6s"></div>
+    <div class="bg-streak" style="top:77%;background:#161823;opacity:.08;animation-duration:5s;animation-delay:-3s"></div>
+    <div class="bg-ring" style="left:8%;width:46px;height:46px;animation-duration:9s;animation-delay:-1s"></div>
+    <div class="bg-ring" style="left:30%;width:26px;height:26px;animation-duration:7s;animation-delay:-5s"></div>
+    <div class="bg-ring" style="left:52%;width:60px;height:60px;animation-duration:12s;animation-delay:-3s"></div>
+    <div class="bg-ring" style="left:72%;width:34px;height:34px;animation-duration:8s;animation-delay:-6s"></div>
+    <div class="bg-ring" style="left:86%;width:22px;height:22px;animation-duration:6.5s;animation-delay:-2s"></div>
+    <div class="bg-ring" style="left:18%;width:30px;height:30px;animation-duration:10s;animation-delay:-8s"></div>
+  </div>
+
+  <canvas id="game"></canvas>
+
+  <div class="hud">
+    <div class="pill bal">
+      <span class="ci" style="width:24px;height:24px"></span>
+      <div><span class="lbl">Balance</span><span class="val" id="balance">0</span></div>
+    </div>
+    <div>
+      <div class="pill timer" id="timer">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9.5 2.5h5"/></svg>
+        <span id="time">4.0s</span>
+      </div>
+      <div class="bar"><i id="bar"></i></div>
+    </div>
+  </div>
+
+  <div id="live">
+    <small>This round</small>
+    <div><span class="ci" style="width:28px;height:28px"></span><b class="gl" id="liveEarned">0</b></div>
+  </div>
+
+  <!-- INTRO -->
+  <section id="intro" class="screen show">
+    <div class="hero">
+      <div class="c" style="left:24px;top:34px;width:84px;height:84px;transform:rotate(-12deg)"><div class="coin"><div class="coin-ring" style="font-size:20px">200</div></div></div>
+      <div class="c" style="left:104px;top:6px;width:64px;height:64px;transform:rotate(10deg)"><div class="coin"><div class="coin-ring" style="font-size:15px">150</div></div></div>
+      <div class="c" style="left:118px;top:82px;width:56px;height:56px;transform:rotate(-4deg)"><div class="coin"><div class="coin-ring" style="font-size:13px">100</div></div></div>
+      <div class="swipe"></div>
+    </div>
+    <h1 class="gl">COIN<br>SLICE</h1>
+    <p>Swipe across the coins to slice them. You have <strong>4 seconds</strong>, so be quick.</p>
+    <div style="width:100%;margin-top:12px"><button class="btn" id="startBtn" type="button">Start slicing</button></div>
+  </section>
+
+  <!-- RESULT -->
+  <section id="result" class="screen dim">
+    <div class="sheet" role="dialog" aria-label="Round results">
+      <div class="grab"></div>
+      <span style="font-size:15px;font-weight:700;color:#E8114A">Time's up!</span>
+      <span style="font-size:17px;font-weight:600;color:#6B6C72">You earned</span>
+      <div class="big pop"><span class="ci" style="width:44px;height:44px"></span><span class="gl" id="resEarned" style="font-size:64px;line-height:1.05;font-weight:900;letter-spacing:-2px;font-variant-numeric:tabular-nums">0</span></div>
+      <span style="font-size:15px;font-weight:700;color:#6B6C72">coins</span>
+      <div class="chips"><span class="chip" id="resSliced"></span><span class="chip" id="resCombo"></span></div>
+      <button class="btn" id="claimBtn" type="button">Claim</button>
+    </div>
+  </section>
+
+  <!-- NICKNAME -->
+  <section id="nick" class="screen dim">
+    <div class="sheet" role="dialog" aria-label="Enter nickname">
+      <div class="grab" style="align-self:center"></div>
+      <h2>Enter your nickname</h2>
+      <p>We'll add <strong id="nickEarned">0 coins</strong> to this player's balance.</p>
+      <label for="nickInput">Nickname</label>
+      <div class="field">
+        <span class="at">@</span>
+        <input id="nickInput" type="text" maxlength="20" placeholder="yourname" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button class="paste" id="pasteBtn" type="button" aria-label="Paste a random nickname">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>
+          Paste
+        </button>
+      </div>
+      <span class="count"><span id="nickCount">0</span>/20</span>
+      <button class="btn" id="continueBtn" type="button" disabled>Continue</button>
+    </div>
+  </section>
+
+  <!-- LOADING -->
+  <section id="loading" class="screen" role="status">
+    <div class="dots"><i></i><i></i></div>
+    <span id="loadText">Adding coins…</span>
+  </section>
+
+  <!-- REWARD -->
+  <section id="reward" class="screen">
+    <canvas id="confetti"></canvas>
+    <div class="rw">
+      <div class="user pop"><i id="userInitial">P</i><span id="userName">@player</span></div>
+      <h2 class="gl pop">Congratulations!</h2>
+      <span class="sub">Your balance</span>
+      <div class="total"><span class="ci" style="width:50px;height:50px"></span><b class="gl" id="rewardBalance">0</b></div>
+      <span class="added pop" id="rewardAdded">+0 coins added</span>
+    </div>
+    <button class="btn" id="againBtn" type="button">Play again</button>
+  </section>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // Load the new coin image
+  var coinImg = new Image();
+  coinImg.src = 'https://cdn.imagetourls.com/uploads/tyImg/HZIolFqY.png';
+
+  var DUR = 4;                       // seconds of slicing
+  var $ = function (id) { return document.getElementById(id); };
+  var app = $('app'), cv = $('game'), ctx = cv.getContext('2d');
+  var cfCv = $('confetti'), cfCtx = cfCv.getContext('2d');
+  var screens = ['intro', 'result', 'nick', 'loading', 'reward'];
+
+  var W = 390, H = 844, DPR = 1, G = 1500;
+  var phase = 'intro';
+  var balance = 0, earned = 0, nick = '';
+  var g = null;
+  var timers = [];
+
+  try { balance = parseInt(localStorage.getItem('coinslice_balance'), 10) || 0; } catch (e) {}
+
+  function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
+  function setBalance(v) { $('balance').textContent = fmt(v); }
+  function show(name) {
+    screens.forEach(function (n) { $(n).classList.toggle('show', n === name); });
+  }
+  function setPhase(p) {
+    phase = p;
+    $('live').classList.toggle('show', p === 'play' || p === 'ending');
+  }
+
+  /* ---------- sizing ---------- */
+  function fit(canvas, c) {
+    var r = canvas.getBoundingClientRect();
+    var w = Math.max(1, r.width), h = Math.max(1, r.height);
+    canvas.width = Math.round(w * DPR);
+    canvas.height = Math.round(h * DPR);
+    c.setTransform(DPR, 0, 0, DPR, 0, 0);
+    return { w: w, h: h };
+  }
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    var s = fit(cv, ctx);
+    W = s.w; H = s.h;
+    G = H * 1.78;
+    if ($('reward').classList.contains('show')) fit(cfCv, cfCtx);
+  }
+  window.addEventListener('resize', resize);
+
+  /* ---------- game ---------- */
+  function newGame() {
+    return { coins: [], pops: [], trail: [], t: 0, endT: 0, spawnAcc: 0, id: 1,
+             sliced: 0, combo: 0, best: 0, lastSliceT: -1, down: false, last: null };
+  }
+  g = newGame();
+
+  function spawn(n) {
+    for (var i = 0; i < n; i++) {
+      var big = Math.random() < 0.14;
+      var r = W * (big ? 0.113 : 0.085 + Math.random() * 0.01);
+      var v = big ? 200 : 100 + ((Math.random() * 10) | 0) * 10;
+      var x0 = W * 0.13 + Math.random() * W * 0.74;
+      var peak = H * (0.5 + Math.random() * 0.22);
+      g.coins.push({
+        x: x0, y: H + r + Math.random() * 40, r: r,
+        vx: (W / 2 - x0) * (0.45 + Math.random() * 0.5) + (Math.random() - 0.5) * W * 0.3,
+        vy: -Math.sqrt(2 * G * peak),
+        rot: Math.random() * 6.283, vr: (Math.random() - 0.5) * 5,
+        v: v, big: big, half: null, age: 0
+      });
+    }
+  }
+
+  function money(v) { return fmt(v); }
+
+  function sliceSeg(a, b) {
+    var dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy;
+    if (L2 < 4) return;
+    var ang = Math.atan2(dy, dx);
+    var keep = [], add = [];
+    g.coins.forEach(function (c) {
+      if (c.half) { keep.push(c); return; }
+      var t = ((c.x - a.x) * dx + (c.y - a.y) * dy) / L2;
+      t = Math.max(0, Math.min(1, t));
+      var px = a.x + dx * t - c.x, py = a.y + dy * t - c.y;
+      if (px * px + py * py <= c.r * c.r) {
+        var rot = ang - Math.PI / 2;
+        var lx = -Math.cos(rot), ly = -Math.sin(rot);
+        var sp = W * 0.5;
+        [['L', 1], ['R', -1]].forEach(function (h) {
+          add.push({
+            x: c.x, y: c.y, r: c.r, rot: rot, vr: h[1] === 1 ? -2.8 : 2.8,
+            vx: c.vx * 0.4 + lx * sp * h[1], vy: Math.min(c.vy, 0) * 0.3 + ly * sp * h[1] - H * 0.14,
+            half: h[0], v: c.v, big: c.big, age: 0
+          });
+        });
+        g.sliced++;
+        g.combo = (g.t - g.lastSliceT < 0.35) ? g.combo + 1 : 1;
+        g.best = Math.max(g.best, g.combo);
+        g.lastSliceT = g.t;
+        g.pops.push({ x: c.x, y: c.y, txt: '+' + money(c.v), age: 0 });
+        earned += c.v;
+        $('liveEarned').textContent = fmt(earned);
+      } else keep.push(c);
+    });
+    if (add.length) g.coins = keep.concat(add);
+  }
+
+  /* ---------- input ---------- */
+  function pt(e) {
+    var r = cv.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+  app.addEventListener('pointerdown', function (e) {
+    if (phase !== 'play') return;
+    var p = pt(e);
+    g.down = true; g.last = p;
+    g.trail = [{ x: p.x, y: p.y, t: performance.now() }];
+    try { app.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  app.addEventListener('pointermove', function (e) {
+    if (!g.down || phase !== 'play') return;
+    var p = pt(e);
+    sliceSeg(g.last, p);
+    g.last = p;
+    g.trail.push({ x: p.x, y: p.y, t: performance.now() });
+  });
+  function up() { g.down = false; g.last = null; }
+  app.addEventListener('pointerup', up);
+  app.addEventListener('pointercancel', up);
+  app.addEventListener('lostpointercapture', up);
+
+  /* ---------- flow ---------- */
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+
+  function startGame() {
+    clearTimers();
+    g = newGame();
+    earned = 0;
+    $('liveEarned').textContent = '0';
+    show(null);
+    setPhase('play');
+    spawn(3);
+  }
+
+  function endRound() {
+    g.coins = []; g.pops = []; g.trail = [];
+    setPhase('result');
+    $('resEarned').textContent = fmt(earned);
+    $('resSliced').textContent = g.sliced + (g.sliced === 1 ? ' coin sliced' : ' coins sliced');
+    $('resCombo').textContent = 'Best combo x' + Math.max(1, g.best);
+    $('claimBtn').textContent = 'Claim ' + fmt(earned) + ' coins';
+    show('result');
+  }
+
+  function toNick() {
+    $('nickEarned').textContent = fmt(earned) + ' coins';
+    $('nickInput').value = nick;
+    updateNickUI();
+    show('nick');
+    setTimeout(function () { try { $('nickInput').focus(); } catch (e) {} }, 350);
+  }
+
+  function updateNickUI() {
+    var v = $('nickInput').value.replace(/\s/g, '').slice(0, 20);
+    if (v !== $('nickInput').value) $('nickInput').value = v;
+    nick = v;
+    $('nickCount').textContent = v.length;
+    $('continueBtn').disabled = !v;
+  }
+
+  var adj = ['swift', 'lucky', 'neon', 'turbo', 'silent', 'golden', 'crispy', 'hyper', 'mighty', 'sneaky', 'cosmic', 'rapid', 'shiny', 'wild', 'frosty', 'pixel'];
+  var nouns = ['slicer', 'ninja', 'blade', 'coin', 'fox', 'tiger', 'ghost', 'rider', 'panda', 'storm', 'shark', 'wolf', 'comet', 'ace', 'samurai', 'flash'];
+  function pick(a) { return a[(Math.random() * a.length) | 0]; }
+  function randomNick() {
+    return (pick(adj) + '_' + pick(nouns) + (100 + ((Math.random() * 900) | 0))).slice(0, 20);
+  }
+
+  function submitNick() {
+    updateNickUI();
+    if (!nick) return;
+    try { $('nickInput').blur(); } catch (e) {}
+    $('loadText').textContent = 'Adding coins to @' + nick + '…';
+    show('loading');
+    setPhase('loading');
+    timers.push(setTimeout(startReward, 1000));
+  }
+
+  /* ---------- reward: count-up + confetti ---------- */
+  var cf = [], cfRaf = 0, cfLast = 0, cfT = 0, cfSecond = false, cntRaf = 0;
+
+  function burst(n, ox, oy) {
+    var colors = ['#25F4EE', '#FE2C55', '#161823', '#FFD23F'];
+    for (var i = 0; i < n; i++) {
+      var ang = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.5;
+      var sp = H * (0.45 + Math.random() * 0.6);
+      var rect = Math.random() < 0.72;
+      cf.push({
+        x: ox, y: oy, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp,
+        rot: Math.random() * 6.283, vr: (Math.random() - 0.5) * 16,
+        w: rect ? 6 + Math.random() * 6 : 9, h: rect ? 10 + Math.random() * 8 : 9, round: !rect,
+        c: colors[i % colors.length], ph: Math.random() * 6.283, age: 0, life: 2.6 + Math.random() * 1.4
+      });
+    }
+  }
+
+  function cfFrame(now) {
+    var dt = cfLast ? Math.min(0.034, (now - cfLast) / 1000) : 0.016;
+    cfLast = now; cfT += dt;
+    if (!cfSecond && cfT > 0.55) { cfSecond = true; burst(60, W * 0.18, H * 0.5); burst(60, W * 0.82, H * 0.5); }
+    cfCtx.clearRect(0, 0, W, H);
+    cf = cf.filter(function (p) {
+      p.age += dt;
+      p.vy += H * 0.97 * dt;
+      p.vx *= 0.985; p.vy *= 0.985;
+      p.x += (p.vx + Math.sin(p.age * 9 + p.ph) * 40) * dt;
+      p.y += p.vy * dt;
+      p.rot += p.vr * dt;
+      if (p.age >= p.life || p.y > H + 40) return false;
+      var fade = p.age > p.life - 0.6 ? Math.max(0, (p.life - p.age) / 0.6) : 1;
+      cfCtx.save();
+      cfCtx.globalAlpha = fade;
+      cfCtx.translate(p.x, p.y);
+      cfCtx.rotate(p.rot);
+      cfCtx.scale(Math.cos(p.age * 10 + p.ph), 1);
+      cfCtx.fillStyle = p.c;
+      if (p.round) { cfCtx.beginPath(); cfCtx.arc(0, 0, p.w / 2, 0, 6.283); cfCtx.fill(); }
+      else cfCtx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      cfCtx.restore();
+      return true;
+    });
+    if (cf.length && phase === 'reward') cfRaf = requestAnimationFrame(cfFrame);
+  }
+
+  function startReward() {
+    var from = balance, to = balance + earned;
+    $('userInitial').textContent = nick.charAt(0).toUpperCase();
+    $('userName').textContent = '@' + nick;
+    $('rewardBalance').textContent = fmt(from);
+    $('rewardAdded').textContent = '+' + fmt(earned) + ' coins added';
+    setPhase('reward');
+    show('reward');
+    fit(cfCv, cfCtx);
+
+    cf = []; cfT = 0; cfLast = 0; cfSecond = false;
+    burst(110, W / 2, H * 0.42);
+    cancelAnimationFrame(cfRaf);
+    cfRaf = requestAnimationFrame(cfFrame);
+
+    // balance count-up, centered on screen
+    var t0 = 0;
+    cancelAnimationFrame(cntRaf);
+    timers.push(setTimeout(function () {
+      cntRaf = requestAnimationFrame(function tick(now) {
+        if (!t0) t0 = now;
+        var k = Math.min(1, (now - t0) / 1900);
+        var e = 1 - Math.pow(1 - k, 3);
+        $('rewardBalance').textContent = fmt(from + (to - from) * e);
+        if (k < 1) cntRaf = requestAnimationFrame(tick);
+        else {
+          balance = to;
+          setBalance(balance);
+          try { localStorage.setItem('coinslice_balance', String(balance)); } catch (err) {}
+        }
+      });
+    }, 350));
+  }
+
+  /* ---------- draw ---------- */
+  function drawCoin(c) {
+    var alpha = 1;
+    if (c.half) alpha = Math.max(0, 1 - Math.max(0, c.age - 0.35) * 2.2);
+    if (alpha <= 0) return;
+    var r = c.r;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.rot);
+    
+    if (c.half) {
+      ctx.beginPath();
+      if (c.half === 'L') ctx.rect(-r - 4, -r - 4, r + 4, 2 * r + 8);
+      else ctx.rect(0, -r - 4, r + 4, 2 * r + 8);
+      ctx.clip();
+    }
+    
+    ctx.shadowColor = 'rgba(22,24,35,.18)';
+    ctx.shadowBlur = 12; ctx.shadowOffsetY = 5;
+    
+    // Draw the image instead of the gradient
+    if (coinImg.complete) {
+      ctx.drawImage(coinImg, -r, -r, r * 2, r * 2);
+    } else {
+      // Fallback in case image is still loading
+      ctx.fillStyle = '#FFD23F';
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, 6.283); ctx.fill();
+    }
+    
+    ctx.restore();
+  }
+
+  function glitchText(txt, x, y, size, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.font = '900 ' + size + 'px "TikTok Sans", system-ui, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(37,244,238,.95)'; ctx.fillText(txt, x - 1.5, y - 1.5);
+    ctx.fillStyle = 'rgba(254,44,85,.95)'; ctx.fillText(txt, x + 1.5, y + 1.5);
+    ctx.fillStyle = '#161823'; ctx.fillText(txt, x, y);
+    ctx.restore();
+  }
+
+  function drawTrail() {
+    var pts = g.trail;
+    if (pts.length < 2) return;
+    var passes = [[-2, -2, '#25F4EE'], [2, 2, '#FE2C55'], [0, 0, '#161823']];
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    passes.forEach(function (p) {
+      ctx.strokeStyle = p[2];
+      ctx.lineWidth = p[2] === '#161823' ? 5 : 6;
+      ctx.beginPath();
+      pts.forEach(function (q, i) {
+        if (i) ctx.lineTo(q.x + p[0], q.y + p[1]); else ctx.moveTo(q.x + p[0], q.y + p[1]);
+      });
+      ctx.stroke();
+    });
+  }
+
+  /* ---------- main loop ---------- */
+  var last = 0, lastTimeTxt = '', lastLow = null;
+  function setTimerUI(tl) {
+    var txt = tl.toFixed(1) + 's';
+    if (txt !== lastTimeTxt) {
+      lastTimeTxt = txt;
+      $('time').textContent = txt;
+      $('bar').style.width = (tl / DUR * 100).toFixed(1) + '%';
+    }
+    var low = phase === 'play' && tl <= 1.5;
+    if (low !== lastLow) { lastLow = low; $('timer').classList.toggle('low', low); }
+  }
+
+  function frame(now) {
+    var dt = last ? Math.min(0.034, (now - last) / 1000) : 0.016;
+    last = now;
+
+    if (phase === 'play') {
+      g.t += dt; g.spawnAcc += dt;
+      while (g.spawnAcc > 0.4) { g.spawnAcc -= 0.4; spawn(1 + ((Math.random() * 2.2) | 0)); }
+      if (g.t >= DUR) { g.t = DUR; g.down = false; g.trail = []; setPhase('ending'); }
+    } else if (phase === 'ending') {
+      g.endT += dt;
+    }
+
+    if (phase === 'intro') setTimerUI(DUR);
+    else if (phase === 'play') setTimerUI(Math.max(0, DUR - g.t));
+    else if (phase === 'ending') setTimerUI(0);
+
+    if (phase === 'play' || phase === 'ending') {
+      g.coins = g.coins.filter(function (c) {
+        c.vy += G * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.rot += c.vr * dt;
+        if (c.half) c.age += dt;
+        return c.vy < 0 || c.y < H + c.r + 10;
+      });
+      g.pops = g.pops.filter(function (p) { p.age += dt; return p.age < 0.9; });
+      var tn = performance.now();
+      g.trail = g.trail.filter(function (p) { return tn - p.t < 130; });
+
+      ctx.clearRect(0, 0, W, H);
+      g.coins.forEach(drawCoin);
+      drawTrail();
+      g.pops.forEach(function (p) {
+        var k = p.age / 0.9;
+        var sc = k < 0.15 ? 0.7 + k * 2 : 1;
+        glitchText(p.txt, p.x, p.y - 60 * k, Math.round(22 * sc), k < 0.6 ? 1 : 1 - (k - 0.6) / 0.4);
+      });
+
+      if (phase === 'ending' && g.endT > 0.75) endRound();
+    } else {
+      ctx.clearRect(0, 0, W, H);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- wire up ---------- */
+  $('startBtn').addEventListener('click', startGame);
+  $('againBtn').addEventListener('click', function () { setBalance(balance); startGame(); });
+  $('claimBtn').addEventListener('click', toNick);
+  $('pasteBtn').addEventListener('click', function () {
+    $('nickInput').value = randomNick();
+    updateNickUI();
+  });
+  $('nickInput').addEventListener('input', updateNickUI);
+  $('nickInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') submitNick(); });
+  $('continueBtn').addEventListener('click', submitNick);
+
+  // pointer events on UI should not start slicing
+  ['intro', 'result', 'nick', 'loading', 'reward'].forEach(function (id) {
+    $(id).addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+  });
+
+  setBalance(balance);
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
